@@ -1,0 +1,121 @@
+//file : cantilever-straight2d.edp
+real cpu = clock();
+//initialization
+load "iovtk"; //library for vtk file
+//define variable
+real sqrt2 = sqrt(2.0); //Definition of square root 2
+real a,b,a0,l0,np,epsilon;
+verbosity = 0;
+//define dimension
+epsilon = 0.01; //crack thickness
+l0 = 0.1; //initial crack
+a = 3.0; b = 0.3; a0 = 0.3;
+np = 8; //division number
+//define label
+int Dirichlet1 = 1, Dirichlet2 = 2, Neumann = 3;
+func mesh straightmesh(real l0){
+  //define domain
+  border gamma1(t = 0, a){x = t; y = 0; label = Neumann;}
+  border gamma2(t = 0, b){x = a; y = t; label = Dirichlet2;}
+  border gamma3(t = a, a0+epsilon){x = t; y = b; label = Neumann;}
+  //define crack domain
+  border sigma0p(t = a0+epsilon, a0){x = t; y = (l0/epsilon)*(t-a0-epsilon)+b; label = Neumann;}
+  border sigma0m(t = a0, a0-epsilon){x = t; y = -(l0/epsilon)*(t-a0)+b-l0; label = Neumann;}
+  border gamma4(t = a0-epsilon, 0){x = t; y = b; label = Neumann;}
+  border gamma5(t = b, 0){x = 0; y = t; label = Dirichlet1;}
+  //build mesh
+  mesh rect = buildmesh(gamma1(10*np) + gamma2(np) + gamma3(10*np)
+  + sigma0p(10*np) + sigma0m(5*np) + gamma4(10*np) + gamma5(np));
+  return rect;
+};
+//physical parameter
+//real c9 = 1e3; //nondimensionalized parameter
+real E = 4e7; //Young Modulus [Pa]
+real nu = 0.37; //Poisson Ratio [-]
+real gravity = 9.80655; //Gravity constant(N.kg-1)
+real rho = 7860; //Density [kg/m3]
+real gm = 0.5; //effective fracture toughness
+//real Kic = 2.0e6; // stress intensity factor [Pa.m^1/2]
+//real gm = (Kic^2.0/E)*(1.0-(nu^2)); //fracture toughness
+//cout << "gm : " << gm << endl;
+//calculate lame
+real lambda = (E*nu)/((1.0+nu)*(1.0-(2.0*nu))); //Lame's first parameter (GPa)
+real mu = E/(2.0*(1.0+nu)); //Lame's second parameter (GPa)
+//define function
+func q = 0.0; //weight on the right part of beam
+func f = 0.0; //function f=0
+func g2 = -1.0; //function g as Dirichlet BC
+//define macro
+macro epsilon(u1,u2) [dx(u1),dy(u2),(dy(u1)+dx(u2))/sqrt2] //EOM
+macro div(u,v)(dx(u)+dy(v)) //EOM
+//define iteration
+int N = 20;
+real dl,l;
+dl = (b-l0)/N;
+real [int] enmat(N), crmat(N);
+//begin iteration
+for (int i = 0; i < N; i++){
+  l = l0 + i*dl;
+  //cout << l << endl;
+  crmat[i] = l;
+  mesh Th = straightmesh(l);
+  //solving linear system
+	fespace Vh(Th,P1);
+	Vh uh1,uh2,vh1,vh2;
+	solve lame([uh1,uh2], [vh1,vh2], solver=CG, eps=1.0e-7) =
+		int2d(Th)(
+			lambda*div(uh1,uh2)*div(vh1,vh2) +
+			2.0*mu*(epsilon(uh1,uh2)'*epsilon(vh1,vh2))) //bilinear form
+		- int2d(Th)(f*vh2) //body force
+		- int1d(Th,Neumann)(q*vh2) //neumann boundary condition
+		+ on(Dirichlet1, uh1 = 0,uh2 = 0) + on(Dirichlet2, uh2 = g2); //dirichlet boundary condition
+	//end of solving linear system
+	//calculate elastic
+	enmat[i] = int2d(Th)((0.5*lambda*div(uh1,uh2)*div(uh1,uh2))
+										+ (mu*(epsilon(uh1,uh2)'*epsilon(uh1,uh2))));
+}; //end iteration
+//write elastic energy to file
+string floc;
+floc = "./data/"; //location to safe file
+ofstream enplot(floc + "energyplot2d.txt"); //write to file for elastic energy plotting
+//write to file
+for (int i = 0; i < N; i++){
+	enplot << crmat[i] << "\t" << enmat[i] << endl;
+};
+//Calculating Potential Energy
+string fname;
+real epmin,eptemp,T,dT,lt,t0,t;
+real [int] ep(N);
+int nT = 30;
+t0 = 0.004;
+t = 0.006;
+dT = (t-t0)/nT;
+ofstream arglocmin(floc + "arglocmin2d.txt"); //write to file for arglocmin
+ofstream crlength(floc + "cracklength2d.txt"); //write file crack length
+for (int i=0; i<nT; i++){
+	T = t0 + i*dT;
+	epmin = 1e30;//just a big number for comparison
+  eptemp = 1e20;
+	fname = floc + "totalenergy2d-" + i + ".txt";
+	ofstream entotal(fname);
+  //write to total energy file
+  for (int j=0; j<N; j++){
+		ep[j] = (T^2.0*enmat[j]) + (gm*crmat[j]);
+    entotal << crmat[j] << "\t" << ep[j] << endl;
+	};
+  //finding local minimizer
+  for (int j=0; j<N; j++){
+    if(ep[j] > eptemp){
+      break;
+    };
+		if(ep[j] <= epmin){
+			epmin = ep[j];
+      lt = crmat[j];
+      eptemp = ep[j];
+		};
+	};
+	arglocmin << lt << "\t" << epmin << endl;
+	crlength << T << "\t" << lt << endl;
+};
+cout << "Fracture Toughness = " << gm << endl;
+cout << "Program Finished in = " << clock()-cpu << " second." << endl;
