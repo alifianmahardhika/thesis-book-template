@@ -13,4 +13,4 @@ https://www.tug.org/texlive
 https://www.texstudio.org/
 
 3. Modify the details in Thesis.cls file (open using any text editor)
-[Class File] (https://github.com/alifianmahardhika/thesis-book-template/Thesis.cls)
+[Class File] (https://github.com/alifianmahardhika/thesis-book-template/blob/main/Thesis.cls)
