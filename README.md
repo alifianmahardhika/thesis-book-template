@@ -6,12 +6,11 @@
 git clone https://github.com/alifianmahardhika/thesis-book-template.git
 ```
 3. Download the LaTex distribution if you don't have one:
-- For Mac User: https://www.tug.org/mactex/
-- For Windows User: http://miktex.org/
-- For Linux User: https://www.tug.org/texlive
+- For Mac User: [MacTex](https://www.tug.org/mactex/)
+- For Windows User: [MikTex](http://miktex.org/)
+- For Linux User: [TexLive](https://www.tug.org/texlive)
 
-2. Download any tex editor, personally i use texstudio
-https://www.texstudio.org/
+2. Download any tex editor, personally i use [Texstudio](https://www.texstudio.org/)
 
 3. Modify the details in Thesis.cls file (open using any text editor)
 [Thesis.cls](https://github.com/alifianmahardhika/thesis-book-template/blob/main/Thesis.cls)
